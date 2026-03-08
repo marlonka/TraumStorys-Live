@@ -1,0 +1,342 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Quicksand", system-ui, sans-serif;
+
+  /* Night sky palette — deep, rich, enveloping */
+  --color-night-950: #050810;
+  --color-night-900: #0a0e1a;
+  --color-night-800: #0e1529;
+  --color-night-700: #151f3d;
+  --color-night-600: #1e2d52;
+
+  /* Warm celestial golds */
+  --color-moon: #fef3c7;
+  --color-moon-bright: #fefce8;
+  --color-moon-warm: #fcd34d;
+  --color-star: #fde68a;
+  --color-star-white: #fef9ef;
+
+  /* Aurora spectrum */
+  --color-aurora-purple: #a78bfa;
+  --color-aurora-violet: #c4b5fd;
+  --color-aurora-blue: #7dd3fc;
+  --color-aurora-teal: #5eead4;
+  --color-aurora-pink: #f9a8d4;
+  --color-aurora-rose: #fda4af;
+
+  /* Story text */
+  --color-dreamy: #e0e7ff;
+  --color-whisper: #c7d2fe;
+  --color-narrator: #ddd6fe;
+}
+
+/* ============================================
+   GLOBAL FOUNDATIONS
+   ============================================ */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body, #root {
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-night-950);
+  font-family: var(--font-sans);
+  color: var(--color-moon);
+  user-select: none;
+}
+
+/* ============================================
+   MOON BUTTON — the heart of the experience
+   ============================================ */
+
+@keyframes moonBreathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 15px rgba(240, 230, 210, 0.25));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 30px rgba(240, 230, 210, 0.35))
+           drop-shadow(0 0 60px rgba(220, 210, 185, 0.1));
+  }
+}
+
+@keyframes moonGlowRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes moonCraterDrift {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(1px, -0.5px); }
+  66% { transform: translate(-0.5px, 1px); }
+}
+
+.moon-breathe {
+  animation: moonBreathe 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.moon-glow-ring {
+  animation: moonGlowRing 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.moon-crater-drift {
+  animation: moonCraterDrift 8s ease-in-out infinite;
+}
+
+/* ============================================
+   LISTENING / SPEAKING STATES
+   ============================================ */
+
+@keyframes listeningOrbit {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes speakingPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 30px rgba(167, 139, 250, 0.3),
+      0 0 60px rgba(167, 139, 250, 0.1),
+      inset 0 0 30px rgba(167, 139, 250, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 50px rgba(167, 139, 250, 0.5),
+      0 0 100px rgba(125, 211, 252, 0.15),
+      inset 0 0 40px rgba(167, 139, 250, 0.15);
+  }
+}
+
+.listening-orbit {
+  animation: listeningOrbit 6s linear infinite;
+}
+
+.speaking-pulse {
+  animation: speakingPulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   STARFIELD
+   ============================================ */
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Shooting star — fast streak along rotated axis, then fade */
+@keyframes shootingStarStreak {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(180px);
+    opacity: 0;
+  }
+}
+
+.shooting-star-streak {
+  animation: shootingStarStreak 0.35s linear forwards;
+}
+
+@keyframes auroraSway {
+  0%, 100% { transform: translateX(0) scaleY(1); opacity: 0.06; }
+  25% { transform: translateX(30px) scaleY(1.1); opacity: 0.1; }
+  50% { transform: translateX(-20px) scaleY(0.95); opacity: 0.07; }
+  75% { transform: translateX(15px) scaleY(1.05); opacity: 0.09; }
+}
+
+@keyframes auroraShimmer {
+  0%, 100% { opacity: 0.04; filter: hue-rotate(0deg); }
+  50% { opacity: 0.08; filter: hue-rotate(20deg); }
+}
+
+@keyframes floatGentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ============================================
+   STORYBOOK CANVAS
+   ============================================ */
+
+@keyframes illustrationReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) rotate(-1deg);
+    filter: blur(8px) saturate(0.5);
+  }
+  40% {
+    opacity: 0.7;
+    transform: scale(0.98) rotate(0deg);
+    filter: blur(2px) saturate(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: blur(0px) saturate(1);
+  }
+}
+
+@keyframes illustrationGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 30px rgba(167, 139, 250, 0.15),
+      0 0 60px rgba(125, 211, 252, 0.05),
+      0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(167, 139, 250, 0.25),
+      0 0 80px rgba(125, 211, 252, 0.1),
+      0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@keyframes bookSpineShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.illustration-enter {
+  animation: illustrationReveal 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.illustration-glow {
+  animation: illustrationGlow 4s ease-in-out infinite;
+}
+
+.book-spine-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(254, 243, 199, 0.1) 45%,
+    rgba(254, 243, 199, 0.25) 50%,
+    rgba(254, 243, 199, 0.1) 55%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: bookSpineShimmer 4s ease-in-out infinite;
+}
+
+/* ============================================
+   TRANSCRIPT TEXT
+   ============================================ */
+
+@keyframes transcriptFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.transcript-enter {
+  animation: transcriptFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ============================================
+   PHASE TRANSITIONS
+   ============================================ */
+
+@keyframes phaseGlow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes sleepyDim {
+  from { opacity: 0; }
+  to { opacity: 0.55; }
+}
+
+@keyframes sleepyStars {
+  0%, 100% { opacity: 0; transform: translateY(0); }
+  50% { opacity: 0.8; transform: translateY(-20px); }
+}
+
+.sleepy-overlay {
+  animation: sleepyDim 5s ease-in forwards;
+}
+
+.phase-label {
+  animation: phaseGlow 3s ease-in-out infinite;
+}
+
+/* ============================================
+   CONNECTING SHIMMER
+   ============================================ */
+
+@keyframes connectingShimmer {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ============================================
+   TITLE ENTRANCE
+   ============================================ */
+
+@keyframes titleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.title-float {
+  animation: titleFloat 5s ease-in-out infinite;
+}
+
+/* ============================================
+   DECISION POINT SPARKLE
+   ============================================ */
+
+@keyframes decisionSparkle {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(252, 211, 77, 0.3);
+  }
+  50% {
+    text-shadow:
+      0 0 20px rgba(252, 211, 77, 0.5),
+      0 0 40px rgba(252, 211, 77, 0.2);
+  }
+}
+
+.decision-sparkle {
+  animation: decisionSparkle 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   FINISHED STATE
+   ============================================ */
+
+@keyframes gentleRise {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.gentle-rise {
+  animation: gentleRise 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
