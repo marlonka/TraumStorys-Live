@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID}"
-REGION="europe-west1"
+REGION="us-central1"
 SERVICE="traumstorys-live"
 SA="traumstorys-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 

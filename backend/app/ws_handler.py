@@ -36,6 +36,10 @@ async def websocket_endpoint(ws: WebSocket):
     async def on_transcript_out(text: str):
         await send_json({"type": "transcript_out", "text": text})
 
+    async def on_interrupted():
+        """Child interrupted Gemini — tell frontend to flush audio buffer."""
+        await send_json({"type": "interrupted"})
+
     async def on_tool_call(name: str, args: dict) -> dict:
         if name == "generate_illustration":
             # Fire-and-forget: narration continues while image generates
@@ -65,14 +69,14 @@ async def websocket_endpoint(ws: WebSocket):
                 msg_type = data.get("type")
 
                 if msg_type == "start_session":
-                    voice = data.get("voice", "Aoede")
                     session = LiveSessionManager(
                         on_audio=on_audio,
                         on_transcript_in=on_transcript_in,
                         on_transcript_out=on_transcript_out,
                         on_tool_call=on_tool_call,
+                        on_interrupted=on_interrupted,
                     )
-                    await session.connect(voice_name=voice)
+                    await session.connect()
                     await send_json({"type": "session_started"})
 
                 elif msg_type == "stop_session":

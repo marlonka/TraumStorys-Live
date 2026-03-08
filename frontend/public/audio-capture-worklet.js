@@ -24,9 +24,9 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
       }
     }
 
-    // Send chunks of ~960 samples (60ms at 16kHz)
-    while (this._buffer.length >= 960) {
-      const chunk = this._buffer.splice(0, 960);
+    // Send chunks of ~480 samples (30ms at 16kHz) for low-latency streaming
+    while (this._buffer.length >= 480) {
+      const chunk = this._buffer.splice(0, 480);
       const pcm = new Int16Array(chunk.length);
       for (let j = 0; j < chunk.length; j++) {
         const s = Math.max(-1, Math.min(1, chunk[j]));

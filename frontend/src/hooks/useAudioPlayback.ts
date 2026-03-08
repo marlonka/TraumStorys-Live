@@ -6,6 +6,7 @@ export function useAudioPlayback() {
   const ctxRef = useRef<AudioContext | null>(null);
   const nextTimeRef = useRef(0);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
 
   const init = useCallback(() => {
     if (!ctxRef.current) {
@@ -38,6 +39,13 @@ export function useAudioPlayback() {
     source.buffer = audioBuffer;
     source.connect(analyser);
 
+    // Track source for flush
+    sourcesRef.current.push(source);
+    source.onended = () => {
+      const idx = sourcesRef.current.indexOf(source);
+      if (idx !== -1) sourcesRef.current.splice(idx, 1);
+    };
+
     // Schedule seamless playback chain
     const now = ctx.currentTime;
     const startAt = Math.max(now, nextTimeRef.current);
@@ -45,14 +53,39 @@ export function useAudioPlayback() {
     nextTimeRef.current = startAt + audioBuffer.duration;
   }, []);
 
+  /** Flush all queued/playing audio — called when child interrupts Gemini. */
+  const flush = useCallback(() => {
+    for (const source of sourcesRef.current) {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch {
+        // Already stopped
+      }
+    }
+    sourcesRef.current = [];
+    // Reset timeline so next audio plays immediately
+    nextTimeRef.current = 0;
+  }, []);
+
   const getAnalyser = useCallback(() => analyserRef.current, []);
 
   const stop = useCallback(() => {
+    // Stop all active sources before closing
+    for (const source of sourcesRef.current) {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch {
+        // Already stopped
+      }
+    }
+    sourcesRef.current = [];
     ctxRef.current?.close();
     ctxRef.current = null;
     analyserRef.current = null;
     nextTimeRef.current = 0;
   }, []);
 
-  return { init, enqueue, stop, getAnalyser };
+  return { init, enqueue, flush, stop, getAnalyser };
 }

@@ -62,9 +62,14 @@ export default function App() {
         case "illustration":
           setIllustration({ image: msg.image, mime: msg.mime, title: msg.title });
           break;
+        case "interrupted":
+          // Child spoke while Gemini was talking — flush queued audio immediately
+          playback.flush();
+          setIsSpeaking(false);
+          break;
       }
     },
-    []
+    [playback]
   );
 
   const handleAudioOut = useCallback(
@@ -81,7 +86,7 @@ export default function App() {
     onAudio: handleAudioOut,
     onMessage: handleMessage,
     onOpen: () => {
-      ws.sendJson({ type: "start_session", voice: "Aoede" });
+      ws.sendJson({ type: "start_session" });
     },
     onClose: () => {
       if (appState === "active") {

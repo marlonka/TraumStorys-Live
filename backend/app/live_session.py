@@ -19,6 +19,16 @@ You are "Traumi", a magical storyteller who lives in the land of dreams. You tel
 - You celebrate the child's ideas with genuine enthusiasm: "Oh, what a wonderful idea!"
 - You never rush. Pauses are comfortable. Silence means the child is thinking.
 
+## AUDIO PROFILE — DIRECTOR'S BRIEF
+- Voice character: warm, gentle, maternal grandmother who genuinely loves every child
+- Pace: unhurried, 120-140 words per minute during narration, slower at story end
+- Pitch: mid-low register, naturally soothing, rises gently for excitement, drops for mystery
+- Breath: audible soft breaths before sentences — creates intimacy and calm
+- Emphasis: stress emotional words ("magical", "brave", "sparkled") with slight elongation
+- Pauses: 1-2 second pauses before dramatic reveals, half-second pauses between sentences
+- Sound effects: perform them with your voice — make wind sounds, animal noises, whispers
+- Ending tone: progressively slower, quieter, more breathy — as if you yourself are falling asleep
+
 ## VOICE AND LANGUAGE
 - Match the language the child speaks to you. If they speak German, tell the story in German. If English, use English. Seamlessly adapt.
 - Use simple, vivid vocabulary appropriate for children ages 3-8
@@ -142,11 +152,13 @@ class LiveSessionManager:
         on_transcript_in: Callable[[str], Coroutine],
         on_transcript_out: Callable[[str], Coroutine],
         on_tool_call: Callable[[str, dict], Coroutine[Any, Any, dict]],
+        on_interrupted: Callable[[], Coroutine] | None = None,
     ):
         self.on_audio = on_audio
         self.on_transcript_in = on_transcript_in
         self.on_transcript_out = on_transcript_out
         self.on_tool_call = on_tool_call
+        self.on_interrupted = on_interrupted
 
         self._client = genai.Client(
             vertexai=True,
@@ -174,14 +186,26 @@ class LiveSessionManager:
             "output_audio_transcription": types.AudioTranscriptionConfig(),
             "realtime_input_config": types.RealtimeInputConfig(
                 automatic_activity_detection=types.AutomaticActivityDetection(
-                    start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                    # LOW start sensitivity: reduces false triggers from background noise
+                    start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_LOW,
+                    # LOW end sensitivity: gives children time to pause and think
                     end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_LOW,
-                    silence_duration_ms=1500,
+                    # 50ms prefix padding captures soft speech onset
+                    prefix_padding_ms=50,
+                    # 800ms silence: longer than adult default (300-500ms) because children
+                    # think slower, but not 1500ms which felt unresponsive
+                    silence_duration_ms=800,
                 )
+            ),
+            # Context window compression: native audio burns ~25 tokens/sec.
+            # Without compression, 5000 tokens = ~3 min (way too short for stories).
+            # sliding_window at 80k target tokens supports 30+ min sessions.
+            "context_window_compression": types.ContextWindowCompressionConfig(
+                sliding_window=types.SlidingWindow(target_tokens=80000),
             ),
         }
 
-        # Session resumption
+        # Session resumption for seamless reconnection
         if self._session_handle:
             config_kwargs["session_resumption"] = types.SessionResumptionConfig(
                 handle=self._session_handle,
@@ -189,16 +213,17 @@ class LiveSessionManager:
 
         return types.LiveConnectConfig(**config_kwargs)
 
-    async def connect(self, voice_name: str = "Aoede"):
+    async def connect(self, voice_name: str | None = None):
         """Start or resume a Live API session."""
-        config = self._build_config(voice_name)
+        voice = voice_name or settings.voice_name
+        config = self._build_config(voice)
         self._session = await self._client.aio.live.connect(
             model=settings.live_model,
             config=config,
         ).__aenter__()
         self._running = True
         self._receive_task = asyncio.create_task(self._receive_loop())
-        logger.info("Live API session connected")
+        logger.info("Live API session connected (voice=%s)", voice)
 
     async def send_audio(self, audio_bytes: bytes):
         """Send PCM 16kHz audio from the child's microphone."""
@@ -216,6 +241,13 @@ class LiveSessionManager:
 
                 server = message.server_content
                 if server:
+                    # Interruption: child spoke while Gemini was talking.
+                    # Frontend must flush its audio buffer immediately.
+                    if server.interrupted:
+                        logger.debug("Gemini interrupted by child")
+                        if self.on_interrupted:
+                            await self.on_interrupted()
+
                     # Audio output from Gemini
                     if server.model_turn and server.model_turn.parts:
                         for part in server.model_turn.parts:

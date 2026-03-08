@@ -69,7 +69,9 @@ Child speaks into mic
 This app needs **real-time, bidirectional voice** — not request/response. Children don't wait for loading spinners. Gemini Live API gives us:
 
 - **Native audio input/output** — no STT/TTS roundtrip, Gemini hears and speaks directly
-- **Voice Activity Detection** tuned for children — high start sensitivity (catches soft voices), low end sensitivity (waits through pauses), 1500ms silence threshold (kids think slowly)
+- **Voice Activity Detection** tuned for children — low start sensitivity (reduces false triggers), low end sensitivity (waits through pauses), 800ms silence threshold, 50ms prefix padding
+- **Interruption handling** — when the child speaks mid-narration, queued audio is flushed instantly for natural turn-taking
+- **Context window compression** — sliding window at 80k tokens enables 30+ minute stories without context exhaustion
 - **Function calling mid-conversation** — Gemini decides when to paint illustrations, without interrupting the story flow
 - **Session resumption** — stories can last 30+ minutes; `session_resumption_update` handles reconnection transparently
 
@@ -179,8 +181,10 @@ traumstorys-live/
 
 ## Traumi — The Storyteller
 
-Traumi is configured via a detailed system instruction that defines personality, story structure, and pacing:
+Traumi is configured via a detailed system instruction that defines personality, story structure, pacing, and an audio profile (director's brief):
 
+- **Warm voice** — Sulafat voice preset, a soothing feminine voice perfect for bedtime storytelling
+- **Audio profile** — director's brief style: mid-low pitch, 120-140 wpm, audible soft breaths, elongated emphasis on emotional words, progressively sleepier toward the ending
 - **Multilingual** — automatically matches the child's language (German, English, or any language the child speaks)
 - **5-phase story arc**: Greeting → Discovery → Narrating → Decision Points → Sleepy Ending
 - **Adaptive pacing** — slower for mystery, faster for excitement, very gentle for the ending
