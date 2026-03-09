@@ -1,8 +1,7 @@
 import { useRef, useEffect } from "react";
 
 const SIZE = 512;
-const SIZE_MASK = SIZE - 1; // 511 for bitwise modulo
-const SIZE_SHIFT = 9;       // log2(512) for bitwise divide
+const HALF = SIZE / 2;
 
 function seededRandom(seed: number) {
   let s = seed;
@@ -12,25 +11,47 @@ function seededRandom(seed: number) {
   };
 }
 
-/** Draw a soft radial spot at a position (cx%, cy%) with given color and alpha. */
-function drawSpot(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  r: number,
-  rgb: string,
-  alpha: number,
-  stops: [number, number][],
-) {
-  const x = cx * SIZE, y = cy * SIZE;
-  const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-  for (const [pos, alphaScale] of stops) {
-    grad.addColorStop(pos, alphaScale === 0 ? "transparent" : `rgba(${rgb}, ${alpha * alphaScale})`);
+/** 2D value noise with smoothstep interpolation */
+class Noise2D {
+  private table: Float32Array;
+  private N: number;
+
+  constructor(seed: number, size = 256) {
+    this.N = size;
+    const rand = seededRandom(seed);
+    this.table = new Float32Array(size * size);
+    for (let i = 0; i < this.table.length; i++) this.table[i] = rand();
   }
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = grad;
-  ctx.fill();
+
+  sample(x: number, y: number): number {
+    const N = this.N;
+    const fx = ((x % N) + N) % N;
+    const fy = ((y % N) + N) % N;
+    const xi = fx | 0;
+    const yi = fy | 0;
+    const xf = fx - xi;
+    const yf = fy - yi;
+    const u = xf * xf * (3 - 2 * xf);
+    const v = yf * yf * (3 - 2 * yf);
+    const xi1 = (xi + 1) % N;
+    const yi1 = (yi + 1) % N;
+    const a = this.table[yi * N + xi];
+    const b = this.table[yi * N + xi1];
+    const c = this.table[yi1 * N + xi];
+    const d = this.table[yi1 * N + xi1];
+    return a + u * (b - a) + v * (c - a) + u * v * (a - b - c + d);
+  }
+
+  fbm(x: number, y: number, octaves: number): number {
+    let val = 0, amp = 1, freq = 1, sum = 0;
+    for (let i = 0; i < octaves; i++) {
+      val += this.sample(x * freq, y * freq) * amp;
+      sum += amp;
+      amp *= 0.5;
+      freq *= 2;
+    }
+    return val / sum;
+  }
 }
 
 export default function MoonCanvas() {
@@ -40,145 +61,220 @@ export default function MoonCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-    const R = SIZE / 2;
+    const R = HALF;
+    const invR = 1 / R;
+    const R2 = R * R;
+    const imageData = ctx.createImageData(SIZE, SIZE);
+    const pix = imageData.data;
 
-    ctx.clearRect(0, 0, SIZE, SIZE);
+    // Independent noise layers
+    const nTex = new Noise2D(42);
+    const nFine = new Noise2D(137);
+    const nBump = new Noise2D(99);
 
-    // ═══════════════════════════════════════════════
-    // STEP 1: Paint flat albedo map (no lighting yet)
-    // ═══════════════════════════════════════════════
+    // Normalized light direction — near-frontal, slight upper-left bias for full moon
+    const rawLx = -0.12, rawLy = -0.14, rawLz = 0.98;
+    const lMag = Math.sqrt(rawLx * rawLx + rawLy * rawLy + rawLz * rawLz);
+    const lightX = rawLx / lMag, lightY = rawLy / lMag, lightZ = rawLz / lMag;
 
-    // Flat warm ivory base — uniform color, lighting comes later
-    ctx.beginPath();
-    ctx.arc(R, R, R - 1, 0, Math.PI * 2);
-    ctx.fillStyle = "#e2dac8";
-    ctx.fill();
-
-    // Maria — smooth dark regions, soft gradient edges
-    // Each mare: [cx%, cy%, rx%, ry%, opacity, rotation]
-    const maria: [number, number, number, number, number, number][] = [
-      [0.30, 0.47, 0.18, 0.26, 0.50, -0.15],  // Oceanus Procellarum
-      [0.36, 0.30, 0.14, 0.11, 0.48, 0.10],    // Mare Imbrium
-      [0.55, 0.30, 0.09, 0.085, 0.44, 0],       // Mare Serenitatis
-      [0.58, 0.44, 0.11, 0.09, 0.46, 0.20],     // Mare Tranquillitatis
-      [0.72, 0.32, 0.05, 0.044, 0.40, 0],        // Mare Crisium
-      [0.63, 0.57, 0.08, 0.065, 0.36, 0.10],    // Mare Fecunditatis
-      [0.38, 0.64, 0.09, 0.065, 0.34, -0.10],   // Mare Nubium
-      [0.28, 0.70, 0.06, 0.05, 0.30, 0],         // Mare Humorum
-      [0.55, 0.62, 0.044, 0.040, 0.28, 0],       // Mare Nectaris
-      [0.45, 0.18, 0.16, 0.03, 0.22, 0.05],      // Mare Frigoris
-      [0.45, 0.40, 0.05, 0.04, 0.28, 0],          // Mare Vaporum
-      [0.56, 0.37, 0.04, 0.06, 0.30, 0.3],       // Serenitatis-Tranquillitatis link
-      [0.32, 0.40, 0.06, 0.05, 0.32, -0.1],      // Imbrium-Procellarum link
+    // ── Lunar maria (dark basaltic plains) ──
+    // [cx, cy, rx, ry, depth, rotation]
+    const maria: readonly (readonly [number, number, number, number, number, number])[] = [
+      [0.30, 0.47, 0.18, 0.26, 0.48, -0.15],   // Oceanus Procellarum
+      [0.36, 0.28, 0.14, 0.12, 0.44, 0.10],     // Mare Imbrium
+      [0.56, 0.29, 0.09, 0.09, 0.42, 0],         // Mare Serenitatis
+      [0.60, 0.42, 0.12, 0.10, 0.44, 0.20],     // Mare Tranquillitatis
+      [0.73, 0.31, 0.055, 0.048, 0.40, 0],       // Mare Crisium
+      [0.64, 0.55, 0.08, 0.07, 0.34, 0.10],     // Mare Fecunditatis
+      [0.38, 0.63, 0.09, 0.07, 0.32, -0.10],    // Mare Nubium
+      [0.28, 0.69, 0.06, 0.05, 0.30, 0],         // Mare Humorum
+      [0.56, 0.60, 0.05, 0.044, 0.27, 0],        // Mare Nectaris
+      [0.45, 0.17, 0.17, 0.025, 0.20, 0.05],    // Mare Frigoris
+      [0.46, 0.39, 0.05, 0.04, 0.27, 0],         // Mare Vaporum
+      [0.56, 0.36, 0.04, 0.06, 0.27, 0.3],      // Serenitatis–Tranquillitatis link
+      [0.32, 0.39, 0.06, 0.05, 0.30, -0.1],     // Imbrium–Procellarum link
     ];
 
-    for (const [cx, cy, rx, ry, opacity, rot] of maria) {
-      ctx.save();
-      ctx.translate(cx * SIZE, cy * SIZE);
-      ctx.rotate(rot);
-      const maxR = Math.max(rx, ry) * SIZE;
-      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, maxR);
-      grad.addColorStop(0, `rgba(85, 78, 65, ${opacity})`);
-      grad.addColorStop(0.55, `rgba(90, 82, 68, ${opacity * 0.65})`);
-      grad.addColorStop(0.85, `rgba(95, 86, 72, ${opacity * 0.2})`);
-      grad.addColorStop(1, "transparent");
-      ctx.beginPath();
-      ctx.ellipse(0, 0, rx * SIZE, ry * SIZE, 0, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.restore();
+    // ── Craters: [cx, cy, radius, rimBrightness, floorDarkness] ──
+    const craters: [number, number, number, number, number][] = [
+      [0.40, 0.82, 0.028, 0.55, 0.12],  // Tycho
+      [0.32, 0.52, 0.024, 0.45, 0.15],  // Copernicus
+      [0.18, 0.36, 0.018, 0.50, 0.10],  // Aristarchus
+      [0.22, 0.44, 0.015, 0.35, 0.12],  // Kepler
+      [0.38, 0.19, 0.022, 0.28, 0.22],  // Plato
+      [0.10, 0.48, 0.020, 0.22, 0.20],  // Grimaldi
+      [0.44, 0.54, 0.020, 0.18, 0.16],  // Ptolemaeus
+      [0.38, 0.88, 0.026, 0.22, 0.14],  // Clavius
+      [0.50, 0.14, 0.016, 0.28, 0.10],  // Aristoteles
+      [0.65, 0.20, 0.013, 0.22, 0.08],  // Eudoxus
+    ];
+
+    // Generate random small craters (enough for visible surface texture)
+    const cRand = seededRandom(7777);
+    for (let i = 0; i < 90; i++) {
+      craters.push([
+        0.08 + cRand() * 0.84,
+        0.08 + cRand() * 0.84,
+        0.002 + cRand() * 0.012,
+        0.08 + cRand() * 0.22,
+        0.03 + cRand() * 0.10,
+      ]);
     }
 
-    // Bright crater spots — via shared drawSpot helper
-    const brightStops: [number, number][] = [[0, 1], [0.4, 0.5], [1, 0]];
-    for (const [cx, cy, r, a] of [
-      [0.40, 0.82, 8, 0.35],   // Tycho
-      [0.32, 0.52, 10, 0.25],  // Copernicus
-      [0.18, 0.36, 6, 0.30],   // Aristarchus
-      [0.22, 0.44, 6, 0.15],   // Kepler
-    ] as [number, number, number, number][]) {
-      drawSpot(ctx, cx, cy, r, "245, 240, 228", a, brightStops);
+    // ── Tycho ray system ──
+    const rRand = seededRandom(42);
+    const tychoRays: [number, number, number][] = [];
+    for (let i = 0; i < 8; i++) {
+      tychoRays.push([
+        (i / 8) * Math.PI * 2 + 0.2 + rRand() * 0.35,  // angle
+        0.12 + rRand() * 0.28,                            // length
+        0.006 + rRand() * 0.010,                           // width
+      ]);
     }
 
-    // Subtle Tycho rays
-    ctx.save();
-    ctx.globalAlpha = 0.04;
-    const tX = 0.40 * SIZE, tY = 0.82 * SIZE;
-    const rand = seededRandom(42);
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + 0.2;
-      const len = 35 + rand() * 55;
-      ctx.beginPath();
-      ctx.moveTo(tX, tY);
-      ctx.lineTo(tX + Math.cos(a) * len, tY + Math.sin(a) * len);
-      ctx.strokeStyle = "#ede5d5";
-      ctx.lineWidth = 1.5 + rand() * 1.5;
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // Dark-floored craters — via shared drawSpot helper
-    const darkStops: [number, number][] = [[0, 1], [0.7, 0.4], [1, 0]];
-    for (const [cx, cy, r, a] of [
-      [0.38, 0.20, 8, 0.15],  // Plato
-      [0.10, 0.48, 7, 0.10],  // Grimaldi
-      [0.44, 0.55, 8, 0.08],  // Ptolemaeus
-      [0.38, 0.88, 10, 0.08], // Clavius
-    ] as [number, number, number, number][]) {
-      drawSpot(ctx, cx, cy, r, "70, 64, 54", a, darkStops);
-    }
+    const grainRng = seededRandom(13);
 
     // ═══════════════════════════════════════════════
-    // STEP 2: Per-pixel sphere lighting
+    //  PER-PIXEL RENDERING — single pass
     // ═══════════════════════════════════════════════
+    for (let py = 0; py < SIZE; py++) {
+      for (let px = 0; px < SIZE; px++) {
+        const dx = px - R, dy = py - R;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 >= R2) continue;
 
-    const imageData = ctx.getImageData(0, 0, SIZE, SIZE);
-    const pixels = imageData.data;
+        const idx = (py * SIZE + px) << 2;
+        const u = px / SIZE;   // normalized 0–1
+        const v = py / SIZE;
 
-    // Near-frontal light for full moon, tiny upper-left bias
-    const lx = -0.10, ly = -0.12, lz = 0.99;
-    const lLen = Math.sqrt(lx * lx + ly * ly + lz * lz);
-    const grain = seededRandom(7);
-    const invR = 1 / R;
-    const outerThresh2 = (R - 0.5) * (R - 0.5);
-    const edgeThresh2 = (R - 1.5) * (R - 1.5);
+        // Sphere normal
+        const snx = dx * invR;
+        const sny = dy * invR;
+        const snzSq = 1 - snx * snx - sny * sny;
+        if (snzSq <= 0) continue;
+        const snz = Math.sqrt(snzSq);
 
-    for (let i = 0; i < pixels.length; i += 4) {
-      if (pixels[i + 3] === 0) continue; // skip transparent
+        // ─── ALBEDO ───
 
-      const pi = i >> 2;
-      const x = pi & SIZE_MASK;
-      const y = pi >> SIZE_SHIFT;
-      const dx = x - R;
-      const dy = y - R;
-      const dist2 = dx * dx + dy * dy;
+        // Base highland color — silvery gray, moderate brightness
+        let colR = 178, colG = 174, colB = 168;
 
-      if (dist2 >= outerThresh2) continue;
+        // Multi-frequency surface texture (visible at display size)
+        const tex = nTex.fbm(u * 18, v * 18, 4);
+        const fine = nFine.sample(u * 55, v * 55);
+        const texShift = (tex - 0.5) * 32 + (fine - 0.5) * 10;
+        colR += texShift;
+        colG += texShift;
+        colB += texShift * 0.85;
 
-      // Sphere normal
-      const nx = dx * invR;
-      const ny = dy * invR;
-      const nz = Math.sqrt(Math.max(0.001, 1 - nx * nx - ny * ny));
+        // Maria — noise-modulated organic edges
+        let mareStrength = 0;
+        for (const [mcx, mcy, mrx, mry, mdepth, mrot] of maria) {
+          const mdx = u - mcx, mdy = v - mcy;
+          const cosR = Math.cos(-mrot), sinR = Math.sin(-mrot);
+          const ex = (mdx * cosR - mdy * sinR) / mrx;
+          const ey = (mdx * sinR + mdy * cosR) / mry;
+          const eDist = Math.sqrt(ex * ex + ey * ey);
+          if (eDist < 1.4) {
+            // Noise modulates the boundary for organic shapes
+            const edgeNoise = nTex.sample(u * 9 + mcx * 80, v * 9 + mcy * 80) * 0.2;
+            const falloff = 1 - Math.min(1, Math.max(0, (eDist - 0.55 + edgeNoise) / 0.55));
+            const strength = falloff * mdepth;
+            if (strength > mareStrength) mareStrength = strength;
+          }
+        }
+        if (mareStrength > 0) {
+          // Maria: darker, cooler gray (basaltic)
+          colR = colR * (1 - mareStrength) + 98 * mareStrength;
+          colG = colG * (1 - mareStrength) + 95 * mareStrength;
+          colB = colB * (1 - mareStrength) + 92 * mareStrength;
+        }
 
-      // Lambert diffuse
-      const diffuse = Math.max(0, (nx * lx + ny * ly + nz * lz) / lLen);
-      const lighting = 0.22 + diffuse * 0.78;
+        // Craters — bowl depression + bright rim ring
+        // Rim uses MAX (physically correct: overlapping raised rims don't stack)
+        let bestRim = 0;
+        for (const [ccx, ccy, cRadius, cRim, cFloor] of craters) {
+          const cdx = u - ccx, cdy = v - ccy;
+          const cd2 = cdx * cdx + cdy * cdy;
+          const rimOuter = cRadius * 1.8;
+          if (cd2 >= rimOuter * rimOuter) continue;
+          const cDist = Math.sqrt(cd2);
+          const normDist = cDist / cRadius;
 
-      // Gentle limb darkening
-      const limb = Math.pow(nz, 0.15);
+          if (normDist < 0.75) {
+            // Inside crater bowl — darker floor (cumulative)
+            const bowlFactor = (1 - normDist / 0.75) * cFloor;
+            colR *= 1 - bowlFactor;
+            colG *= 1 - bowlFactor;
+            colB *= 1 - bowlFactor;
+          } else if (normDist < 1.2) {
+            // Rim — bright raised ring (take brightest only)
+            const rimStr = Math.max(0, 1 - Math.abs(normDist - 0.95) / 0.25) * cRim;
+            if (rimStr > bestRim) bestRim = rimStr;
+          }
+        }
+        if (bestRim > 0) {
+          const rimAdd = bestRim * 40;
+          colR += rimAdd;
+          colG += rimAdd * 0.96;
+          colB += rimAdd * 0.90;
+        }
 
-      // Very subtle grain — barely perceptible, just breaks digital smoothness
-      const g = (grain() - 0.5) * 3;
+        // Tycho ray system — bright ejecta streaks
+        const tDx = u - 0.40, tDy = v - 0.82;
+        const tDist = Math.sqrt(tDx * tDx + tDy * tDy);
+        if (tDist > 0.03 && tDist < 0.45) {
+          const tAngle = Math.atan2(tDy, tDx);
+          for (const [rayAngle, rayLen, rayWidth] of tychoRays) {
+            let angleDiff = Math.abs(tAngle - rayAngle);
+            if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+            if (angleDiff < rayWidth && tDist < rayLen) {
+              const rayIntensity = (1 - tDist / rayLen) * (1 - angleDiff / rayWidth) * 0.14;
+              colR += rayIntensity * 180;
+              colG += rayIntensity * 175;
+              colB += rayIntensity * 165;
+            }
+          }
+        }
 
-      const brightness = lighting * limb;
-      pixels[i] = Math.max(0, Math.min(255, pixels[i] * brightness + g));
-      pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] * brightness + g));
-      pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] * brightness + g));
+        // Clamp albedo to realistic range before lighting
+        colR = Math.min(colR, 215);
+        colG = Math.min(colG, 210);
+        colB = Math.min(colB, 205);
 
-      // Anti-aliased edge — only compute sqrt for the ~1,600 edge pixels
-      if (dist2 > edgeThresh2) {
+        // ─── LIGHTING ───
+
+        // Bump-mapped normals — noise gradient creates micro-terrain feel
+        const bScale = 25;
+        const bEps = 2 / SIZE;
+        const bH = nBump.sample(u * bScale, v * bScale);
+        const bHx = nBump.sample((u + bEps) * bScale, v * bScale);
+        const bHy = nBump.sample(u * bScale, (v + bEps) * bScale);
+        const bumpStr = 0.35;
+        const bnx = snx + (bH - bHx) * bumpStr;
+        const bny = sny + (bH - bHy) * bumpStr;
+        const bnLen = Math.sqrt(bnx * bnx + bny * bny + snz * snz);
+
+        // Lambert diffuse with perturbed normal
+        const diffuse = Math.max(0, (bnx / bnLen) * lightX + (bny / bnLen) * lightY + (snz / bnLen) * lightZ);
+        const lighting = 0.16 + diffuse * 0.84;
+
+        // Limb darkening — subtle falloff at sphere edges
+        const limb = Math.pow(snz, 0.13);
+
+        // Film grain — breaks digital smoothness
+        const grain = (grainRng() - 0.5) * 3;
+
+        const brightness = lighting * limb;
+        pix[idx]     = Math.max(0, Math.min(255, colR * brightness + grain));
+        pix[idx + 1] = Math.max(0, Math.min(255, colG * brightness + grain));
+        pix[idx + 2] = Math.max(0, Math.min(255, colB * brightness + grain));
+
+        // Anti-aliased edge
         const dist = Math.sqrt(dist2);
-        pixels[i + 3] = Math.max(0, Math.min(255, (R - 0.5 - dist) * 170 + 85));
+        pix[idx + 3] = dist > R - 1.5
+          ? Math.max(0, Math.min(255, (R - 0.5 - dist) * 170 + 85))
+          : 255;
       }
     }
 

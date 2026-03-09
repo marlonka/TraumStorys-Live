@@ -73,7 +73,7 @@ export default function MicButton({ state, onClick }: MicButtonProps) {
         `}
         style={{
           background: showMoon
-            ? "transparent"
+            ? "#06070f"
             : state === "listening"
             ? "radial-gradient(circle at 40% 40%, rgba(125, 211, 252, 0.12) 0%, rgba(10, 16, 32, 0.85) 60%, rgba(10, 16, 32, 0.95) 100%)"
             : "radial-gradient(circle at 40% 40%, rgba(167, 139, 250, 0.12) 0%, rgba(10, 16, 32, 0.85) 60%, rgba(10, 16, 32, 0.95) 100%)",
