@@ -198,10 +198,11 @@ class LiveSessionManager:
                 )
             ),
             # Context window compression: native audio burns ~25 tokens/sec.
-            # Without compression, 5000 tokens = ~3 min (way too short for stories).
-            # sliding_window at 80k target tokens supports 30+ min sessions.
+            # Model trigger_tokens=32000, so target must be ≤ 32000.
+            # At 16k target, compression kicks in at 32k → compresses to 16k,
+            # giving ~10 min cycles before each compression.
             "context_window_compression": types.ContextWindowCompressionConfig(
-                sliding_window=types.SlidingWindow(target_tokens=80000),
+                sliding_window=types.SlidingWindow(target_tokens=16000),
             ),
         }
 
