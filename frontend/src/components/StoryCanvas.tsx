@@ -17,8 +17,11 @@ export default function StoryCanvas({ image, mime, title }: StoryCanvasProps) {
         }}
       />
 
-      {/* Storybook frame — rounded like a well-loved picture book */}
-      <div className="relative rounded-[1.5rem] overflow-hidden illustration-glow">
+      {/* Storybook frame — warm border, rounded like a picture book */}
+      <div
+        className="relative rounded-[1.5rem] overflow-hidden illustration-glow"
+        style={{ border: "1px solid rgba(254, 243, 199, 0.08)" }}
+      >
         {/* Book spine shimmer along the left edge */}
         <div className="absolute left-0 top-0 bottom-0 w-3 z-10 book-spine-shimmer" />
 
@@ -45,14 +48,17 @@ export default function StoryCanvas({ image, mime, title }: StoryCanvasProps) {
         {/* Scene title — like a storybook caption */}
         {title && (
           <div className="absolute bottom-0 left-0 right-0 px-5 pb-4 pt-10 bg-gradient-to-t from-night-950/80 via-night-950/40 to-transparent">
-            <p className="text-moon/90 text-sm font-semibold text-center tracking-wide drop-shadow-lg">
+            <p
+              className="text-moon/90 text-sm font-semibold text-center tracking-wide drop-shadow-lg"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
               {title}
             </p>
           </div>
         )}
       </div>
 
-      {/* Decorative stars around the frame */}
+      {/* Decorative stars around the frame — 4 total, asymmetric */}
       <div
         className="absolute -top-2 -right-2 w-3 h-3 rounded-full"
         style={{
@@ -67,6 +73,22 @@ export default function StoryCanvas({ image, mime, title }: StoryCanvasProps) {
           background: "var(--color-aurora-blue)",
           boxShadow: "0 0 6px var(--color-aurora-blue)",
           animation: "twinkle 4s ease-in-out 1.5s infinite",
+        }}
+      />
+      <div
+        className="absolute top-[15%] -left-2.5 w-1.5 h-1.5 rounded-full"
+        style={{
+          background: "var(--color-aurora-violet)",
+          boxShadow: "0 0 5px var(--color-aurora-violet)",
+          animation: "twinkle 3.5s ease-in-out 2s infinite",
+        }}
+      />
+      <div
+        className="absolute bottom-[20%] -right-1.5 w-2 h-2 rounded-full"
+        style={{
+          background: "var(--color-moon-warm)",
+          boxShadow: "0 0 6px rgba(252, 211, 77, 0.5)",
+          animation: "twinkle 4.5s ease-in-out 0.8s infinite",
         }}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import StarryBackground from "./components/StarryBackground";
 import MicButton from "./components/MicButton";
 import StoryCanvas from "./components/StoryCanvas";
@@ -31,6 +31,16 @@ const PHASE_CONFIG: Record<StoryPhase, { label: string; sublabel: string }> = {
   ending:         { label: "Sweet dreams", sublabel: "The stars are watching over you" },
 };
 
+const SLEEP_SYMBOLS = ["\u2729", "\u263D", "\u2601", "\u2605", "\u2729", "\u263D", "\u2729", "\u2601", "\u2605", "\u263D"];
+
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>("idle");
   const [phase, setPhase] = useState<StoryPhase>("greeting");
@@ -40,6 +50,19 @@ export default function App() {
 
   const playback = useAudioPlayback();
   const speakingTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // Sleep particles with deterministic positions
+  const sleepParticles = useMemo(() => {
+    return Array.from({ length: 10 }, (_, i) => {
+      const rand = seededRandom(i * 37 + 7);
+      return {
+        x: 15 + rand() * 70,
+        y: 5 + rand() * 40,
+        size: 0.8 + rand() * 1.2,
+        duration: 4 + rand() * 3,
+      };
+    });
+  }, []);
 
   const handleMessage = useCallback(
     (msg: JsonMessage) => {
@@ -63,7 +86,6 @@ export default function App() {
           setIllustration({ image: msg.image, mime: msg.mime, title: msg.title });
           break;
         case "interrupted":
-          // Child spoke while Gemini was talking — flush queued audio immediately
           playback.flush();
           setIsSpeaking(false);
           break;
@@ -134,7 +156,7 @@ export default function App() {
 
   return (
     <div className="relative h-full w-full flex flex-col items-center overflow-hidden">
-      <StarryBackground dimmed={isEnding} />
+      <StarryBackground dimmed={isEnding} phase={appState === "active" ? phase : undefined} />
 
       {/* ====== IDLE / FINISHED SCREEN ====== */}
       {(appState === "idle" || appState === "finished") && (
@@ -142,32 +164,76 @@ export default function App() {
           {/* Logo / Title area */}
           <div className="text-center title-float">
             <h1
-              className="text-4xl font-bold tracking-wide mb-2"
               style={{
-                background: "linear-gradient(to bottom, var(--color-moon-bright), var(--color-moon-warm))",
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(2.5rem, 8vw, 4rem)",
+                fontWeight: 700,
+                lineHeight: 1.1,
+                background: "linear-gradient(to bottom, #fefce8, #fcd34d)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
-                filter: "drop-shadow(0 2px 8px rgba(254, 243, 199, 0.3))",
+                filter: "drop-shadow(0 2px 12px rgba(254, 243, 199, 0.4)) drop-shadow(0 0 40px rgba(252, 211, 77, 0.15))",
+                letterSpacing: "0.05em",
               }}
             >
               TraumStorys
             </h1>
-            <p className="text-moon/40 text-sm font-medium tracking-widest uppercase">
-              {appState === "finished"
-                ? "What a beautiful adventure"
-                : "Bedtime stories, told just for you"}
+            <p
+              className="mt-1"
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 400,
+                fontSize: "0.7rem",
+                letterSpacing: "0.3em",
+                color: "rgba(254, 243, 199, 0.3)",
+                textTransform: "uppercase",
+              }}
+            >
+              L I V E
             </p>
           </div>
 
           {/* The Moon Button — centerstage */}
           <MicButton state={micState} onClick={handleMicClick} />
 
-          {/* Bottom tagline */}
-          <p className="text-moon/20 text-xs tracking-wider mt-4">
+          {/* Whispered tagline */}
+          <p
+            className="whisper-text text-xs tracking-widest text-center max-w-[18rem]"
+            style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 400,
+              color: "rgba(254, 243, 199, 0.35)",
+            }}
+          >
             {appState === "finished"
-              ? "Touch the moon for another story"
-              : "Powered by a little bit of magic"}
+              ? "What a beautiful adventure..."
+              : "Bedtime stories, told just for you..."}
           </p>
+
+          {/* Dreamy mist at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none overflow-hidden">
+            <div
+              className="absolute bottom-0 left-[-10%] w-[60%] h-24 rounded-full blur-3xl"
+              style={{
+                background: "radial-gradient(ellipse, rgba(167, 139, 250, 0.06), transparent)",
+                animation: "auroraSway 20s ease-in-out infinite",
+              }}
+            />
+            <div
+              className="absolute bottom-0 right-[-5%] w-[50%] h-20 rounded-full blur-3xl"
+              style={{
+                background: "radial-gradient(ellipse, rgba(125, 211, 252, 0.04), transparent)",
+                animation: "auroraSway 25s ease-in-out 5s infinite",
+              }}
+            />
+            <div
+              className="absolute bottom-2 left-[30%] w-[40%] h-16 rounded-full blur-3xl"
+              style={{
+                background: "radial-gradient(ellipse, rgba(252, 211, 77, 0.03), transparent)",
+                animation: "auroraSway 22s ease-in-out 3s infinite",
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -180,18 +246,29 @@ export default function App() {
 
       {/* ====== ACTIVE STORY SCREEN ====== */}
       {appState === "active" && (
-        <div className="relative z-10 flex-1 flex flex-col items-center w-full pt-6 pb-6 px-4">
+        <div
+          className={`relative z-10 flex-1 flex flex-col items-center w-full pt-6 pb-6 px-4 ${
+            phase === "decision_point" ? "decision-pulse" : ""
+          }`}
+        >
           {/* Phase indicator — top */}
-          <div className="text-center mb-4 min-h-[3rem]">
+          <div className="text-center mb-4 min-h-[3.5rem]">
             <p
               className={`
-                text-xs font-semibold uppercase tracking-[0.2em] mb-1 transition-all duration-700
-                ${phase === "decision_point" ? "decision-sparkle text-moon-warm" : "phase-label text-dreamy/50"}
+                font-semibold uppercase mb-1 transition-all duration-1000
+                ${phase === "decision_point" ? "decision-sparkle text-moon-warm" : "phase-label text-dreamy/60"}
               `}
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: phase === "decision_point"
+                  ? "clamp(0.85rem, 2.5vw, 1.1rem)"
+                  : "clamp(0.7rem, 2vw, 0.85rem)",
+                letterSpacing: "0.15em",
+              }}
             >
               {phaseInfo.label}
             </p>
-            <p className="text-moon/25 text-[0.65rem] tracking-wider">
+            <p className="text-moon/30 text-[0.65rem] tracking-wider">
               {phaseInfo.sublabel}
             </p>
           </div>
@@ -226,21 +303,39 @@ export default function App() {
           {/* Soft dimming */}
           <div className="absolute inset-0 bg-night-950/50 sleepy-overlay" />
 
-          {/* Floating sleep particles */}
-          {Array.from({ length: 8 }).map((_, i) => (
+          {/* Floating sleep symbols — stars, crescents, clouds */}
+          {sleepParticles.map((p, i) => (
             <div
-              key={`zzz-${i}`}
-              className="absolute text-moon/20 text-lg font-bold"
+              key={`sleep-${i}`}
+              className="absolute"
               style={{
-                left: `${20 + Math.random() * 60}%`,
-                bottom: `${10 + Math.random() * 30}%`,
-                animation: `floatGentle ${3 + Math.random() * 2}s ease-in-out ${i * 0.5}s infinite`,
-                animationDelay: `${i * 0.8}s`,
+                left: `${p.x}%`,
+                bottom: `${p.y}%`,
+                fontSize: `${p.size}rem`,
+                color: "rgba(254, 243, 199, 0.15)",
+                animation: `sleepFloat ${p.duration}s ease-in-out ${i * 0.6}s infinite`,
               }}
             >
-              z
+              {SLEEP_SYMBOLS[i]}
             </div>
           ))}
+
+          {/* Goodnight message — fades in after 3s */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <p
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(1.5rem, 5vw, 2.5rem)",
+                fontWeight: 500,
+                color: "rgba(254, 243, 199, 0.5)",
+                animation: "goodnightFade 4s ease-in 3s forwards",
+                textShadow: "0 0 30px rgba(254, 243, 199, 0.2)",
+                opacity: 0,
+              }}
+            >
+              Goodnight, little dreamer...
+            </p>
+          </div>
         </div>
       )}
     </div>

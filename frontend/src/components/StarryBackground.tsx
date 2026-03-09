@@ -17,6 +17,16 @@ interface ShootingStar {
   angle: number;
 }
 
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  duration: number;
+  delay: number;
+  driftX: number;
+}
+
 function seededRandom(seed: number) {
   let s = seed;
   return () => {
@@ -25,7 +35,20 @@ function seededRandom(seed: number) {
   };
 }
 
-export default function StarryBackground({ dimmed = false }: { dimmed?: boolean }) {
+const PHASE_OVERLAY: Record<string, string> = {
+  greeting: "rgba(252, 211, 77, 0.02)",
+  discovery: "rgba(125, 211, 252, 0.02)",
+  narrating: "rgba(167, 139, 250, 0.02)",
+  decision_point: "rgba(252, 211, 77, 0.04)",
+  ending: "rgba(252, 211, 77, 0.03)",
+};
+
+interface StarryBackgroundProps {
+  dimmed?: boolean;
+  phase?: string;
+}
+
+export default function StarryBackground({ dimmed = false, phase }: StarryBackgroundProps) {
   // Deterministic star field — stable across remounts and StrictMode
   const stars = useMemo<Star[]>(() => {
     const rand = seededRandom(12345);
@@ -40,6 +63,20 @@ export default function StarryBackground({ dimmed = false }: { dimmed?: boolean 
     }));
   }, []);
 
+  // Stardust / firefly particles — warm golden motes drifting slowly
+  const particles = useMemo<Particle[]>(() => {
+    const rand = seededRandom(54321);
+    return Array.from({ length: 18 }, (_, i) => ({
+      id: i,
+      x: rand() * 100,
+      y: rand() * 100,
+      size: rand() * 2 + 1.5,
+      duration: 15 + rand() * 20,
+      delay: rand() * 15,
+      driftX: rand() * 40 - 20,
+    }));
+  }, []);
+
   // JS-driven shooting star — random position each time
   const [shootingStar, setShootingStar] = useState<ShootingStar | null>(null);
   const removeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,12 +84,11 @@ export default function StarryBackground({ dimmed = false }: { dimmed?: boolean 
   const spawnStar = useCallback(() => {
     setShootingStar({
       id: Date.now(),
-      x: 10 + Math.random() * 75,   // anywhere across the screen
-      y: 3 + Math.random() * 35,     // upper 38%
-      angle: 28 + Math.random() * 18, // 28-46 deg — natural falling angle
+      x: 10 + Math.random() * 75,
+      y: 3 + Math.random() * 35,
+      angle: 28 + Math.random() * 18,
     });
 
-    // Clear previous removal timer if overlapping
     if (removeTimer.current) clearTimeout(removeTimer.current);
     removeTimer.current = setTimeout(() => setShootingStar(null), 450);
   }, []);
@@ -62,7 +98,7 @@ export default function StarryBackground({ dimmed = false }: { dimmed?: boolean 
     let timeout: ReturnType<typeof setTimeout>;
 
     function scheduleNext() {
-      const delay = 18000 + Math.random() * 30000; // 18-48s between appearances
+      const delay = 18000 + Math.random() * 30000;
       timeout = setTimeout(() => {
         if (cancelled) return;
         spawnStar();
@@ -70,7 +106,6 @@ export default function StarryBackground({ dimmed = false }: { dimmed?: boolean 
       }, delay);
     }
 
-    // First appearance after 10-25s
     timeout = setTimeout(() => {
       if (cancelled) return;
       spawnStar();
@@ -84,20 +119,32 @@ export default function StarryBackground({ dimmed = false }: { dimmed?: boolean 
     };
   }, [spawnStar]);
 
+  const isEnding = phase === "ending";
+
   return (
     <div
       className="fixed inset-0 overflow-hidden pointer-events-none transition-opacity duration-[3000ms]"
       style={{ opacity: dimmed ? 0.4 : 1 }}
     >
-      {/* Very dark sky — near black at top, dark navy at bottom */}
+      {/* Sky gradient — warm indigo tones */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 transition-all duration-[5000ms]"
         style={{
-          background: `linear-gradient(to bottom, #030508 0%, #060a14 30%, #0a1020 70%, #0e1528 100%)`,
+          background: isEnding
+            ? `linear-gradient(to bottom, #04030a 0%, #080714 30%, #0d0e22 70%, #1a1028 100%)`
+            : `linear-gradient(to bottom, #04030a 0%, #080714 30%, #0d0e22 70%, #12142c 100%)`,
         }}
       />
 
-      {/* Subtle aurora — very faint */}
+      {/* Warm vignette — cozy lantern-lit edges */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(6, 7, 15, 0.5) 100%)",
+        }}
+      />
+
+      {/* Subtle aurora */}
       <div
         className="absolute -top-10 -left-20 w-[140%] h-[30%] rounded-full blur-3xl"
         style={{
@@ -106,7 +153,15 @@ export default function StarryBackground({ dimmed = false }: { dimmed?: boolean 
         }}
       />
 
-      {/* Stars — all white, varying brightness */}
+      {/* Phase-specific color overlay — subconscious mood shift */}
+      {phase && PHASE_OVERLAY[phase] && (
+        <div
+          className="absolute inset-0 transition-all duration-[2000ms] pointer-events-none"
+          style={{ backgroundColor: PHASE_OVERLAY[phase] }}
+        />
+      )}
+
+      {/* Stars */}
       {stars.map((s) => (
         <div
           key={s.id}
@@ -126,7 +181,29 @@ export default function StarryBackground({ dimmed = false }: { dimmed?: boolean 
         />
       ))}
 
-      {/* Shooting star — JS-spawned, random position each time, very fast */}
+      {/* Stardust / firefly particles — warm golden motes */}
+      {particles.map((p) => (
+        <div
+          key={`particle-${p.id}`}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            background: isEnding
+              ? "rgba(251, 191, 36, 0.6)"
+              : "rgba(254, 243, 199, 0.6)",
+            boxShadow: isEnding
+              ? "0 0 8px rgba(251, 191, 36, 0.4)"
+              : "0 0 6px rgba(254, 243, 199, 0.4)",
+            animation: `drift ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            "--drift-x": `${p.driftX}px`,
+          } as React.CSSProperties}
+        />
+      ))}
+
+      {/* Shooting star */}
       {shootingStar && (
         <div
           key={shootingStar.id}

@@ -67,7 +67,7 @@ export default function Waveform({ getAnalyser, active }: WaveformProps) {
 
       // Draw three layered aurora ribbons
       const ribbons = [
-        { color1: "rgba(167, 139, 250, 0.6)", color2: "rgba(125, 211, 252, 0.3)", offset: 0, amp: 1.0, speed: 1 },
+        { color1: "rgba(196, 139, 250, 0.6)", color2: "rgba(167, 139, 250, 0.3)", offset: 0, amp: 1.0, speed: 1 },
         { color1: "rgba(125, 211, 252, 0.4)", color2: "rgba(94, 234, 212, 0.2)", offset: 0.3, amp: 0.7, speed: 1.3 },
         { color1: "rgba(249, 168, 212, 0.3)", color2: "rgba(196, 181, 253, 0.15)", offset: 0.6, amp: 0.5, speed: 0.8 },
       ];

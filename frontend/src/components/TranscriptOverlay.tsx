@@ -16,27 +16,42 @@ export default function TranscriptOverlay({ lines }: TranscriptOverlayProps) {
         const age = visible.length - 1 - i; // 0 = newest, 2 = oldest
 
         return (
-          <p
-            key={lines.length - visible.length + i}
-            className={`
-              text-center leading-relaxed tracking-wide transcript-enter
-              ${isChild ? "italic" : "font-medium"}
-            `}
-            style={{
-              fontSize: isLatest ? "0.9rem" : "0.8rem",
-              color: isChild
-                ? "var(--color-moon)"
-                : "var(--color-narrator)",
-              opacity: isLatest ? 0.85 : age === 1 ? 0.35 : 0.15,
-              filter: !isLatest ? `blur(${age * 0.5}px)` : undefined,
-              animationDelay: "0.05s",
-              textShadow: isLatest
-                ? "0 0 20px rgba(224, 231, 255, 0.15)"
-                : undefined,
-            }}
-          >
-            {line.text}
-          </p>
+          <div key={lines.length - visible.length + i}>
+            {/* Golden dot separator between lines */}
+            {i > 0 && (
+              <div className="flex justify-center mb-2">
+                <div
+                  className="w-[3px] h-[3px] rounded-full"
+                  style={{
+                    background: "var(--color-moon-warm)",
+                    boxShadow: "0 0 4px rgba(252, 211, 77, 0.3)",
+                    opacity: isLatest ? 0.5 : 0.2,
+                  }}
+                />
+              </div>
+            )}
+            <p
+              className={`
+                text-center leading-relaxed tracking-wide transcript-enter
+                ${isChild ? "italic" : ""}
+              `}
+              style={{
+                fontSize: isLatest ? "0.9rem" : "0.8rem",
+                fontWeight: isChild ? 400 : 500,
+                color: isChild
+                  ? "var(--color-moon)"
+                  : "var(--color-narrator)",
+                opacity: isLatest ? 0.85 : age === 1 ? 0.35 : 0.15,
+                filter: !isLatest ? `blur(${age * 0.5}px)` : undefined,
+                animationDelay: "0.05s",
+                textShadow: isLatest
+                  ? "0 0 20px rgba(224, 231, 255, 0.15)"
+                  : undefined,
+              }}
+            >
+              {isChild ? `\u201C${line.text}\u201D` : line.text}
+            </p>
+          </div>
         );
       })}
     </div>

@@ -12,13 +12,27 @@ export default function MicButton({ state, onClick }: MicButtonProps) {
 
   return (
     <div className="relative flex flex-col items-center">
-      {/* Ambient glow behind button */}
+      {/* Second ethereal glow ring (idle only) — large, very faint */}
+      {showMoon && (
+        <div
+          className="absolute w-72 h-72 rounded-full -z-20"
+          style={{
+            background: "radial-gradient(circle, rgba(254, 243, 199, 0.06) 0%, transparent 70%)",
+            filter: "blur(60px)",
+            animation: "moonBreathe 6s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+          }}
+        />
+      )}
+
+      {/* Primary ambient glow behind button */}
       <div
-        className="absolute w-44 h-44 rounded-full blur-3xl transition-all duration-1000 -z-10"
+        className={`absolute rounded-full blur-3xl transition-all duration-1000 -z-10 ${
+          showMoon ? "w-56 h-56" : "w-44 h-44"
+        }`}
         style={{
           background:
             showMoon
-              ? "radial-gradient(circle, rgba(240, 230, 210, 0.15) 0%, transparent 70%)"
+              ? "radial-gradient(circle, rgba(240, 230, 210, 0.18) 0%, transparent 70%)"
               : state === "speaking"
               ? "radial-gradient(circle, rgba(167, 139, 250, 0.2) 0%, rgba(125, 211, 252, 0.08) 50%, transparent 70%)"
               : "radial-gradient(circle, rgba(125, 211, 252, 0.15) 0%, transparent 70%)",
@@ -102,11 +116,15 @@ export default function MicButton({ state, onClick }: MicButtonProps) {
       {/* Label */}
       <span
         className={`
-          mt-5 text-sm font-medium tracking-wide transition-all duration-500
-          ${showMoon ? "text-white/50" : "text-dreamy/50"}
+          mt-5 text-sm tracking-wide transition-all duration-500
+          ${showMoon ? "text-white/40" : "text-dreamy/50"}
         `}
+        style={{
+          fontFamily: showMoon ? "var(--font-display)" : "var(--font-sans)",
+          fontWeight: showMoon ? 400 : 500,
+        }}
       >
-        {state === "idle" && "Touch the moon to begin"}
+        {state === "idle" && "Touch the moon to begin your adventure..."}
         {isConnecting && "Waking up Traumi..."}
         {state === "listening" && "Traumi is listening"}
         {state === "speaking" && "Traumi is telling your story"}

@@ -2,13 +2,14 @@
 
 @theme {
   --font-sans: "Quicksand", system-ui, sans-serif;
+  --font-display: "Fredoka", "Quicksand", system-ui, sans-serif;
 
-  /* Night sky palette — deep, rich, enveloping */
-  --color-night-950: #050810;
-  --color-night-900: #0a0e1a;
-  --color-night-800: #0e1529;
-  --color-night-700: #151f3d;
-  --color-night-600: #1e2d52;
+  /* Night sky palette — warm indigo, enveloping */
+  --color-night-950: #06070f;
+  --color-night-900: #0b0d1a;
+  --color-night-800: #111629;
+  --color-night-700: #1a1f3d;
+  --color-night-600: #252d52;
 
   /* Warm celestial golds */
   --color-moon: #fef3c7;
@@ -29,6 +30,10 @@
   --color-dreamy: #e0e7ff;
   --color-whisper: #c7d2fe;
   --color-narrator: #ddd6fe;
+
+  /* Warm accents */
+  --color-warm-gold: #f59e0b;
+  --color-sleepy-warm: #2d1b4e;
 }
 
 /* ============================================
@@ -176,6 +181,24 @@ html, body, #root {
   50% { transform: translateY(-8px); }
 }
 
+/* Stardust / firefly drift */
+@keyframes drift {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.15;
+  }
+  25% {
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-30px) translateX(var(--drift-x, 10px));
+    opacity: 0.45;
+  }
+  75% {
+    opacity: 0.65;
+  }
+}
+
 /* ============================================
    STORYBOOK CANVAS
    ============================================ */
@@ -183,18 +206,22 @@ html, body, #root {
 @keyframes illustrationReveal {
   0% {
     opacity: 0;
-    transform: scale(0.92) rotate(-1deg);
-    filter: blur(8px) saturate(0.5);
+    transform: scale(0.95);
+    filter: blur(12px) saturate(0.3) brightness(1.3);
   }
-  40% {
-    opacity: 0.7;
-    transform: scale(0.98) rotate(0deg);
-    filter: blur(2px) saturate(0.8);
+  30% {
+    opacity: 0.6;
+    filter: blur(6px) saturate(0.6) brightness(1.15);
+  }
+  60% {
+    opacity: 0.85;
+    transform: scale(0.99);
+    filter: blur(2px) saturate(0.85) brightness(1.05);
   }
   100% {
     opacity: 1;
-    transform: scale(1) rotate(0deg);
-    filter: blur(0px) saturate(1);
+    transform: scale(1);
+    filter: blur(0) saturate(1) brightness(1);
   }
 }
 
@@ -219,7 +246,7 @@ html, body, #root {
 }
 
 .illustration-enter {
-  animation: illustrationReveal 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: illustrationReveal 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .illustration-glow {
@@ -287,6 +314,16 @@ html, body, #root {
   animation: phaseGlow 3s ease-in-out infinite;
 }
 
+/* Decision point subtle pulse */
+@keyframes decisionPulse {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(252, 211, 77, 0.02); }
+}
+
+.decision-pulse {
+  animation: decisionPulse 3s ease-in-out infinite;
+}
+
 /* ============================================
    CONNECTING SHIMMER
    ============================================ */
@@ -309,6 +346,16 @@ html, body, #root {
   animation: titleFloat 5s ease-in-out infinite;
 }
 
+/* Whisper text entrance */
+@keyframes whisperIn {
+  0% { opacity: 0; transform: translateY(5px); filter: blur(3px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.whisper-text {
+  animation: whisperIn 2s ease-out forwards;
+}
+
 /* ============================================
    DECISION POINT SPARKLE
    ============================================ */
@@ -326,6 +373,37 @@ html, body, #root {
 
 .decision-sparkle {
   animation: decisionSparkle 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   ENDING EXPERIENCE
+   ============================================ */
+
+@keyframes sleepFloat {
+  0% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-25px) scale(1);
+    opacity: 0.2;
+  }
+  80% {
+    opacity: 0.1;
+  }
+  100% {
+    transform: translateY(-40px) scale(0.9);
+    opacity: 0;
+  }
+}
+
+@keyframes goodnightFade {
+  0% { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  60% { opacity: 0.5; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0.4; transform: translateY(-2px); }
 }
 
 /* ============================================
