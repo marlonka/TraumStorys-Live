@@ -61,15 +61,8 @@ html, body, #root {
    ============================================ */
 
 @keyframes moonBreathe {
-  0%, 100% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 15px rgba(240, 230, 210, 0.25));
-  }
-  50% {
-    transform: scale(1.05);
-    filter: drop-shadow(0 0 30px rgba(240, 230, 210, 0.35))
-           drop-shadow(0 0 60px rgba(220, 210, 185, 0.1));
-  }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 @keyframes moonGlowRing {

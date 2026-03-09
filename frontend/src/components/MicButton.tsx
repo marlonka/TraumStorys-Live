@@ -78,7 +78,7 @@ export default function MicButton({ state, onClick }: MicButtonProps) {
             ? "radial-gradient(circle at 40% 40%, rgba(125, 211, 252, 0.12) 0%, rgba(10, 16, 32, 0.85) 60%, rgba(10, 16, 32, 0.95) 100%)"
             : "radial-gradient(circle at 40% 40%, rgba(167, 139, 250, 0.12) 0%, rgba(10, 16, 32, 0.85) 60%, rgba(10, 16, 32, 0.95) 100%)",
           boxShadow: showMoon
-            ? "0 0 25px rgba(240, 230, 210, 0.3), 0 0 60px rgba(220, 210, 185, 0.12)"
+            ? "0 0 20px rgba(200, 200, 200, 0.15), 0 0 50px rgba(180, 180, 180, 0.06)"
             : state === "listening"
             ? "0 0 25px rgba(125, 211, 252, 0.15), inset 0 0 15px rgba(125, 211, 252, 0.05)"
             : undefined,
