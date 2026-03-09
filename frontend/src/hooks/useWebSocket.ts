@@ -7,7 +7,8 @@ export type JsonMessage =
   | { type: "transcript_out"; text: string }
   | { type: "phase"; phase: string }
   | { type: "illustration"; image: string; mime: string; title: string }
-  | { type: "interrupted" };
+  | { type: "interrupted" }
+  | { type: "error"; message: string };
 
 interface UseWebSocketOpts {
   onAudio: (data: ArrayBuffer) => void;

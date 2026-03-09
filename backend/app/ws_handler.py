@@ -76,8 +76,16 @@ async def websocket_endpoint(ws: WebSocket):
                         on_tool_call=on_tool_call,
                         on_interrupted=on_interrupted,
                     )
-                    await session.connect()
-                    await send_json({"type": "session_started"})
+                    try:
+                        await session.connect()
+                        await send_json({"type": "session_started"})
+                    except Exception as e:
+                        logger.error(f"Failed to connect to Gemini Live API: {e}")
+                        await send_json({
+                            "type": "error",
+                            "message": f"Could not connect to Gemini: {e}",
+                        })
+                        session = None
 
                 elif msg_type == "stop_session":
                     if session:

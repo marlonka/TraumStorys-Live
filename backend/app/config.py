@@ -3,11 +3,11 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     gcp_project_id: str = ""
-    gcp_region: str = "us-central1"
+    gcp_region: str = "europe-west1"
 
-    # Live API
+    # Live API (only available in select regions, NOT us-central1)
     live_model: str = "gemini-live-2.5-flash-native-audio"
-    live_location: str = "us-central1"
+    live_location: str = "europe-west1"
     voice_name: str = "Sulafat"  # Warm, soothing female voice
 
     # Image generation (Nano Banana 2)

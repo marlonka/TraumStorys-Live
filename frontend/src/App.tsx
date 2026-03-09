@@ -47,9 +47,12 @@ export default function App() {
   const [illustration, setIllustration] = useState<Illustration | null>(null);
   const [transcripts, setTranscripts] = useState<TranscriptLine[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const playback = useAudioPlayback();
   const speakingTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  // Ref breaks circular dependency: handleMessage/onClose → capture → ws → handleMessage
+  const captureRef = useRef<{ stop: () => void }>({ stop: () => {} });
 
   // Sleep particles with deterministic positions
   const sleepParticles = useMemo(() => {
@@ -89,6 +92,13 @@ export default function App() {
           playback.flush();
           setIsSpeaking(false);
           break;
+        case "error":
+          console.error("Server error:", msg.message);
+          setErrorMsg(msg.message);
+          captureRef.current.stop();
+          playback.stop();
+          setAppState("idle");
+          break;
       }
     },
     [playback]
@@ -113,6 +123,12 @@ export default function App() {
     onClose: () => {
       if (appState === "active") {
         setAppState("finished");
+      } else if (appState === "connecting") {
+        // Connection failed before session started
+        captureRef.current.stop();
+        playback.stop();
+        setAppState("idle");
+        setErrorMsg((prev) => prev || "Connection lost. Please try again.");
       }
     },
   });
@@ -120,10 +136,12 @@ export default function App() {
   const capture = useAudioCapture({
     onChunk: (buf) => ws.sendBinary(buf),
   });
+  captureRef.current = capture;
 
   const handleMicClick = useCallback(async () => {
     if (appState === "idle") {
       setAppState("connecting");
+      setErrorMsg(null);
       setTranscripts([]);
       setIllustration(null);
       setPhase("greeting");
@@ -294,6 +312,29 @@ export default function App() {
               <MicButton state={micState} onClick={handleMicClick} />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ====== ERROR TOAST ====== */}
+      {errorMsg && appState === "idle" && (
+        <div
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 max-w-sm px-5 py-3 rounded-xl text-center"
+          style={{
+            background: "rgba(127, 29, 29, 0.85)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            color: "rgba(254, 202, 202, 0.9)",
+            fontFamily: "var(--font-sans)",
+            fontSize: "0.8rem",
+            animation: "goodnightFade 0.5s ease-out forwards",
+          }}
+          onClick={() => setErrorMsg(null)}
+        >
+          <p className="font-medium mb-0.5" style={{ color: "rgba(252, 165, 165, 1)" }}>
+            Could not wake up Traumi
+          </p>
+          <p className="text-[0.7rem] opacity-75">{errorMsg}</p>
+          <p className="text-[0.6rem] opacity-50 mt-1">Tap to dismiss</p>
         </div>
       )}
 
